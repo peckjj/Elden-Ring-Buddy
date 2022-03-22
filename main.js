@@ -1,9 +1,11 @@
+const fs = require("fs");
 const { Client, Intents } = require('discord.js');
 const sqlite3 = require('sqlite3').verbose();
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES]});
 var db = new sqlite3.Database('./database.db');
 
 const MY_USER_NAME = 'Elden-Ring-Buddy';
+const TOKEN = fs.readFileSync('./token.txt', {encoding: 'utf-8', flag: 'r'}).split('\n').filter(line => line.trim().charAt(0) != '#')[0].trim();
 
 const COMMANDS = [
     'search',
@@ -165,7 +167,7 @@ function handleLearning(message) {
 }
 
 client.on('ready', () => {
-    console.log(`${client.user.tag} is ready!`);
+    console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
 });
 
 client.on('messageCreate', async message => {
@@ -190,4 +192,4 @@ process.on('SIGINT', () => {
     db.close();
 })
 
-client.login('OTU1MDk3MzQ5OTc2MzkxNzMw.YjctuQ.iMO9bW2m2WoaWNdJWhr1NizZ8UY');
+client.login(TOKEN);
