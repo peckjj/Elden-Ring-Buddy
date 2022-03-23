@@ -14,10 +14,24 @@ const COMMANDS = [
     'l'
 ];
 
-const LEARNING_QUEUE = {};
+const ACTIVE_LEARNING_RECORDS = {};
+
+const LEARNING_QUEUE = [];
 
 async function searchEmptyWeaponUrls() {
     let sql = "SELECT * FROM weapons WHERE imageURL IS NULL;";
+    return new Promise((res, rej) => {
+        db.all(sql, [], (err, rows) => {
+            if (err) {
+                rej(err);
+            }
+            res(rows);
+        })
+    });
+}
+
+async function searchEmptyItemEffects() {
+    let sql = "SELECT * FROM items WHERE effect IS NULL;";
     return new Promise((res, rej) => {
         db.all(sql, [], (err, rows) => {
             if (err) {
@@ -54,8 +68,8 @@ async function getWeaponTypeNames() {
 
 async function searchWeaponNames(name) {
     return new Promise( (res, rej) => {
-        let sql = `SELECT * FROM weapons WHERE name LIKE ${"'%" + name + "%'"};`;
-        db.all(sql, [], (err, rows) => {
+        let sql = `SELECT * FROM weapons WHERE name LIKE \"?\";`;
+        db.all(sql, [name], (err, rows) => {
             if (err) {
                 rej(err);
             }
@@ -113,23 +127,14 @@ async function handleCommand(command, values, message) {
             break;
         case 'l':
         case 'learn':
-        response = await new Promise(async (res, rej) => {
-            let rows = await searchEmptyWeaponUrls();
-            if (rows.length === 0) {
-                rows = await searchEmptyWeaponTypes();
+            if (LEARNING_QUEUE.length > 0) {
+                let prompt = LEARNING_QUEUE.pop();
+                response = prompt.prompt;
+                ACTIVE_LEARNING_RECORDS[message.author.username] = prompt.sql;
+            } else {
+                response = "Whoops! You taught me so much, I'm not smart enough to say what I don't know, so check back later!";
             }
-            ret = "Can you give me the weapon type for the " + rows[0].name + "?\n\nRespond with the number or name and @ me to reply!\n\n";
-            ret += "Weapon Types:\n\n";
-            let weaponTypes = await getWeaponTypeNames();
-            console.log(weaponTypes);
-            for (let row of weaponTypes) {
-                ret += `- ${row.name} (${row.id})\n`;
-            }
-            LEARNING_QUEUE[message.author.username] = {
-                sql: `UPDATE weapons SET weaponType = \"?\" WHERE name = \"${rows[0].name}\"`
-            };
-            res(ret);
-        });
+            break;
         default:
             break;
     }
@@ -152,22 +157,56 @@ function isAtMe(message) {
 
 function handleLearning(message) {
     console.log("Got: " + message.content.replace(/\<@![0-9]*\>/, '').trim());
-    if (LEARNING_QUEUE[message.author.username]) {
-        db.all(LEARNING_QUEUE[message.author.username].sql.replace('?', parseInt(message.content.replace(/\<@![0-9]*\>/, '').trim())), (err, rows) => {
+    const learningRecord = ACTIVE_LEARNING_RECORDS[message.author.username];
+    if (learningRecord) {
+        db.all(learningRecord, [message.content.replace(/\<@![0-9]*\>/, '').trim()], (err, rows) => {
             if (err) {
                 console.log("Something didn't work!");
+                console.log(err);
+                console.log(learningRecord);
+                console.log(message.content.replace(/\<@![0-9]*\>/, '').trim());
+                message.reply("Oops... Something didn't work!");
                 return;
             }
 
-            delete LEARNING_QUEUE[message.author.username];
+            delete ACTIVE_LEARNING_RECORDS[message.author.username];
 
             message.reply("Thanks!!");
-        })
+            console.log("updated database");
+        });
+    }
+}
+
+async function buildLearningQueue() {
+    let emptyWeaponUrls = await searchEmptyWeaponUrls();
+    for (let row of emptyWeaponUrls) {
+        LEARNING_QUEUE.push({
+            prompt: `Can you give me the URL for the ${row.name}? Reply to me with an @ to submit your response!`,
+            sql: `UPDATE items SET url = \"?\" WHERE name = \"${row.name}\"`
+        });
+    }
+
+    let emptyWeaponTypes = await searchEmptyWeaponTypes();
+    for (let row of emptyWeaponTypes) {
+        LEARNING_QUEUE.push({
+            prompt: `Can you give me the weapon Type for the ${row.name}?\nWeapon Types Include:\nAxes\nBallistas\nBows\nClaws\nColossal Swords\nCollosal Weapons\nCrossbows\nCurved Greatswords\nCurved Swords\nDaggers\nFists\nFlails\nGlintstone Staffs\nGreataxes\nGreatbows\nGreat Spears\nGreatswords\nHalberds\nHammers\nHeavy Thrusting Swords\nKatanas\nLight Bows\nReapers\nSacred Seals\nSpears\nStraight Swords\nThrusting Swords\nTorches\nTwinblades\nWhips\n\nReply to me with an @ to submit your response!`,
+            sql: `UPDATE items SET weaponType = \"?\" WHERE name = \"${row.name}\"`
+        });
+    }
+
+    let emptyItemEffects = await searchEmptyItemEffects();
+    for (let row of emptyItemEffects) {
+        LEARNING_QUEUE.push({
+            prompt: `Can you give me the "effect" for the ${row.name}? Reply to me with an @ to submit your response!`,
+            sql: `UPDATE items SET effect = ? WHERE name = \"${row.name}\"`
+        });
     }
 }
 
 client.on('ready', () => {
-    console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
+    buildLearningQueue().then(() => {
+        console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
+    });
 });
 
 client.on('messageCreate', async message => {
