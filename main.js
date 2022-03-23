@@ -151,7 +151,7 @@ function isAtMe(message) {
         console.log(message.author);
         console.log(message.content);
         for (pair of message.mentions.users) {
-            if (pair[1].username == MY_USER_NAME || pair[1].includes(MY_TEXT_ID)) {
+            if (pair[1].username == MY_USER_NAME || message.content.includes(MY_TEXT_ID)) {
                 ret = true;
             }
         }
