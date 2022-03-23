@@ -12,7 +12,9 @@ const COMMANDS = [
     'search',
     's',
     'learn',
-    'l'
+    'l',
+    'help',
+    'h'
 ];
 
 const ACTIVE_LEARNING_RECORDS = {};
@@ -69,8 +71,8 @@ async function getWeaponTypeNames() {
 
 async function searchWeaponNames(name) {
     return new Promise( (res, rej) => {
-        let sql = `SELECT * FROM weapons WHERE name LIKE \"?\";`;
-        db.all(sql, [name], (err, rows) => {
+        let sql = `SELECT * FROM weapons WHERE name LIKE ?;`;
+        db.all(sql, ["%"+name+"%"], (err, rows) => {
             if (err) {
                 rej(err);
             }
@@ -106,6 +108,7 @@ function parseCommand(message) {
 async function handleCommand(command, values, message) {
     if (!COMMANDS.includes(command)) {
         console.log(`Can't handle command ${command}`);
+        message.reply(help());
         return;
     }
 
@@ -125,8 +128,8 @@ async function handleCommand(command, values, message) {
                 res(ret);
             });
             break;
-        case 'l':
         case 'learn':
+        case 'l':
             if (LEARNING_QUEUE.length > 0) {
                 let prompt = LEARNING_QUEUE.pop();
                 response = prompt.prompt;
@@ -135,10 +138,28 @@ async function handleCommand(command, values, message) {
                 response = "Whoops! You taught me so much, I'm not smart enough to say what I don't know, so check back later!";
             }
             break;
+        case 'help':
+        case 'h':
+            response = help();
+            break;    
         default:
             break;
     }
 
+    return response;
+}
+
+function help() {
+    let response = "I'm Elden-Ring-Buddy, or ERB!\n";
+    response += "\n";
+    response += "__Commands:__\n";
+    response += "\n";
+    response += "**!h or !help:**\n";
+    response += "\tDisplay this help message.\n\n";
+    response += "**!s or !search**\n";
+    response += "\tSearch for items (Currently only supports weapons).\n\n";
+    response += "**!l or !learn**\n";
+    response += "\tHelp ERB learn! ERB will prompt you to help expand his knowledge! Reply by putting @Elden-Ring-Buddy somewhere in your message along with your reply to respond.";
     return response;
 }
 
