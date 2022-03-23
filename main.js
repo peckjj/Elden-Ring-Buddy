@@ -152,6 +152,7 @@ function isAtMe(message) {
             }
         }
     }
+    console.log("Not at me");
     return ret;
 }
 
