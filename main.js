@@ -5,6 +5,7 @@ const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_M
 var db = new sqlite3.Database('./database.db');
 
 const MY_USER_NAME = 'Elden-Ring-Buddy';
+const MY_TEXT_ID = '<@&955996044422959177>';
 const TOKEN = fs.readFileSync('./token.txt', {encoding: 'utf-8', flag: 'r'}).split('\n').filter(line => line.trim().charAt(0) != '#')[0].trim();
 
 const COMMANDS = [
@@ -150,7 +151,7 @@ function isAtMe(message) {
         console.log(message.author);
         console.log(message.content);
         for (pair of message.mentions.users) {
-            if (pair[1].username == MY_USER_NAME) {
+            if (pair[1].username == MY_USER_NAME || pair[1].includes(MY_TEXT_ID)) {
                 ret = true;
             }
         }
