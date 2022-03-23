@@ -146,6 +146,7 @@ function isAtMe(message) {
     ret = false;
     
     if (message.mentions && message.mentions.users) {
+        console.log(message.mentions.users);
         for (pair of message.mentions.users) {
             if (pair[1].username == MY_USER_NAME) {
                 ret = true;
