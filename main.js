@@ -5,7 +5,8 @@ const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_M
 var db = new sqlite3.Database('./database.db');
 
 const MY_USER_NAME = 'Elden-Ring-Buddy';
-const MY_TEXT_ID = '@&955996044422959177';
+let MY_TEXT_ID;
+const MY_AT = '@Elden-Ring-Buddy';
 const TOKEN = fs.readFileSync('./token.txt', {encoding: 'utf-8', flag: 'r'}).split('\n').filter(line => line.trim().charAt(0) != '#')[0].trim();
 
 const COMMANDS = [
@@ -132,13 +133,12 @@ async function handleCommand(command, values, message) {
             console.log(`Handling search for ${values[0]}`);
             response = await new Promise( async (res, rej) => {
                 let rows = await searchWeaponNames(values[0]);
-                let ret = "";
-                ret += `Weapon search for \'${values[0]}\'\n\n`;
+                let ret = rows.length > 0 ? `Weapon search for \'${values[0]}\'\n\n` : "";
                 for (let row of rows) {
                     ret += `[${row.name}](${row.url})\n`;
                 }
                 rows = await searchItemNames(values[0]);
-                ret += `\nItem search for \'${values[0]}\'\n\n`;
+                ret += rows.length > 0 ? `\nItem search for \'${values[0]}\'\n\n` : '';
                 for (let row of rows) {
                     ret += `[${row.name}]\n`;
                 }
@@ -182,9 +182,9 @@ function help() {
 
 function isAtMe(message) {
     ret = false;
-    
+    console.log(message.content);
     if (message.mentions && message.mentions.users) {
-        ret = message.content.includes(MY_TEXT_ID);
+        ret = message.content.includes(MY_TEXT_ID) || message.content.includes(MY_AT);
         for (pair of message.mentions.users) {
             if (pair[1].username == MY_USER_NAME) {
                 ret = true;
@@ -213,6 +213,8 @@ function handleLearning(message) {
             message.reply("Thanks!!");
             console.log("updated database");
         });
+    } else {
+        console.log("no learning record");
     }
 }
 
@@ -245,15 +247,18 @@ async function buildLearningQueue() {
 client.on('ready', () => {
     buildLearningQueue().then(() => {
         console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
+        MY_TEXT_ID = `<@${client.user.id}>`
+        console.log(MY_TEXT_ID);
+        console.log(client.user);
     });
 });
 
 client.on('messageCreate', async message => {
-    if (isAtMe(message)) {
+    if (message.author.username != MY_USER_NAME && isAtMe(message)) {
         handleLearning(message);
         return;
     }
-    if (message.author.username != MY_USER_NAME && isCommand(message)) {
+    if (isCommand(message)) {
         // Parse the command
         let {command, values} = parseCommand(message.content);
         // Execute the command
