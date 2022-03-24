@@ -81,6 +81,18 @@ async function searchWeaponNames(name) {
     });
 }
 
+async function searchItemNames(name) {
+    return new Promise( (res, rej) => {
+        let sql = `SELECT * FROM items WHERE name LIKE ?;`;
+        db.all(sql, ["%"+name+"%"], (err, rows) => {
+            if (err) {
+                rej(err);
+            }
+            res(rows);
+        });
+    });
+}
+
 function rowsToString(rows) {
     let str;
     
@@ -121,9 +133,14 @@ async function handleCommand(command, values, message) {
             response = await new Promise( async (res, rej) => {
                 let rows = await searchWeaponNames(values[0]);
                 let ret = "";
-                // ret += `Weapon search for \'${values[0]}\'\n\n`;
+                ret += `Weapon search for \'${values[0]}\'\n\n`;
                 for (let row of rows) {
                     ret += `[${row.name}](${row.url})\n`;
+                }
+                rows = await searchItemNames(values[0]);
+                ret += `\nItem search for \'${values[0]}\'\n\n`;
+                for (let row of rows) {
+                    ret += `[${row.name}]\n`;
                 }
                 res(ret);
             });
@@ -157,7 +174,7 @@ function help() {
     response += "**!h or !help:**\n";
     response += "\tDisplay this help message.\n\n";
     response += "**!s or !search**\n";
-    response += "\tSearch for items (Currently only supports weapons).\n\n";
+    response += "\tSearch for items (Currently only supports weapons and items).\n\n";
     response += "**!l or !learn**\n";
     response += "\tHelp ERB learn! ERB will prompt you to help expand his knowledge! Reply by putting @Elden-Ring-Buddy somewhere in your message along with your reply to respond.";
     return response;
