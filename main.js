@@ -4,19 +4,24 @@ const sqlite3 = require('sqlite3').verbose();
 const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES]});
 var db = new sqlite3.Database('./database.db');
 
-const MY_USER_NAME = 'Elden-Ring-Buddy';
+let MY_USER_NAME;
 let MY_TEXT_ID;
-const MY_AT = '@Elden-Ring-Buddy';
+let MY_AT;
 const TOKEN = fs.readFileSync('./token.txt', {encoding: 'utf-8', flag: 'r'}).split('\n').filter(line => line.trim().charAt(0) != '#')[0].trim();
 
-const COMMANDS = [
-    'search',
-    's',
-    'learn',
-    'l',
-    'help',
-    'h'
-];
+const SEARCH_COMMANDS = {
+    "--url": false,
+    "-u": false
+}
+
+const COMMANDS = {
+    'search': SEARCH_COMMANDS,
+    's': SEARCH_COMMANDS,
+    'learn': {},
+    'l': {},
+    'help': {},
+    'h': {}
+};
 
 const ACTIVE_LEARNING_RECORDS = {};
 
@@ -106,20 +111,82 @@ function isCommand(message) {
     return message.content.substr(0, 1) == '!';
 }
 
-function parseCommand(message) {
-    split = message.substr(1).split(' ');
-    ret = {
-        command: split[0],
-        values: split.slice(1)
-    };
-    console.log("Parsed these values");
-    console.log(ret);
+function parseCommand(messageObj) {
+    try {
 
+        split = messageObj.content.substr(1).split(' ');
+
+        let command = split[0];
+
+        let options = {};
+
+        // Defined here for use outside of loop's scope
+        let i = 1;
+        // Loop ends when non-option is encountered
+        for (  ; i < split.length && split[i].substr(0, 1) === '-'; i++) {
+            
+            // If we can handle the option... (ignore unhandled options)
+            if (Object.keys(COMMANDS[command]).includes(split[i])) {
+                options[split[i]] = true;
+
+                // If the option takes an argument
+                if (COMMANDS[command][split[i]]) {
+                    if (i >= split.length) {
+                        // If we reach end of input too soon...
+                        messageObj.reply(help());
+                        return;
+                    }
+                    // Attach the next token to the option map
+                    options[split[i]] = split[i + 1];
+                    i++;
+                }
+            }
+        }
+
+        ret = {
+            command: command,
+            options: options,
+            values: i < split.length ? split.slice(i) : []
+        };
+        console.log("Parsed these values");
+        console.log(ret);
+        
+        return ret;
+    } catch (err) {
+         console.log(JSON.stringify(err));
+        }
+    return;
+}
+
+async function handleSearch(command, values, options) {
+    let search = values.join(' ');
+    console.log(`Handling search for ${search}`);
+    let rows = await searchWeaponNames(search);
+    let ret = rows.length > 0 ? `Weapon search for \'${search}\'\n\n` : "";
+    if (rows.length > 10) {
+        ret += '\n[Too many results]\n';
+    } else {
+        for (let row of rows) {
+            ret += `[${row.name}]${(options['-u'] || options['--url']) && row.url ? '(' + row.url + ')' : ''}\n`;
+        }
+    }
+    rows = await searchItemNames(values[0]);
+    ret += rows.length > 0 ? `\nItem search for \'${search}\'\n\n` : '';
+    if (rows.length > 10) {
+        ret += '\n[Too many results]\n';
+    } else {
+        for (let row of rows) {
+            ret += `[${row.name}]${(options['-u'] || options['--url']) && row.url ? '(' + row.url + ')' : ''}\n`;
+        }
+    }
+    if (ret === "") {
+        return "No results found...";
+    }
     return ret;
 }
 
-async function handleCommand(command, values, message) {
-    if (!COMMANDS.includes(command)) {
+async function handleCommand(command, values, message, options) {
+    if (!COMMANDS[command]) {
         console.log(`Can't handle command ${command}`);
         message.reply(help());
         return;
@@ -130,20 +197,7 @@ async function handleCommand(command, values, message) {
     switch (command) {
         case 'search':
         case 's':
-            console.log(`Handling search for ${values[0]}`);
-            response = await new Promise( async (res, rej) => {
-                let rows = await searchWeaponNames(values[0]);
-                let ret = rows.length > 0 ? `Weapon search for \'${values[0]}\'\n\n` : "";
-                for (let row of rows) {
-                    ret += `[${row.name}](${row.url})\n`;
-                }
-                rows = await searchItemNames(values[0]);
-                ret += rows.length > 0 ? `\nItem search for \'${values[0]}\'\n\n` : '';
-                for (let row of rows) {
-                    ret += `[${row.name}]\n`;
-                }
-                res(ret);
-            });
+            response = handleSearch(command, values, options);
             break;
         case 'learn':
         case 'l':
@@ -175,6 +229,8 @@ function help() {
     response += "\tDisplay this help message.\n\n";
     response += "**!s or !search**\n";
     response += "\tSearch for items (Currently only supports weapons and items).\n\n";
+    response += "\t-u\t:\n";
+    response += "\t--url\t:  Include the URLs to the results if the data is present.\n\n";
     response += "**!l or !learn**\n";
     response += "\tHelp ERB learn! ERB will prompt you to help expand his knowledge! Reply by putting @Elden-Ring-Buddy somewhere in your message along with your reply to respond.";
     return response;
@@ -248,6 +304,8 @@ client.on('ready', () => {
     buildLearningQueue().then(() => {
         console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
         MY_TEXT_ID = `<@${client.user.id}>`
+        MY_USER_NAME = client.user.username.slice(0);
+        MY_AT = '@' + MY_USER_NAME;
         console.log(MY_TEXT_ID);
         console.log(client.user);
     });
@@ -255,14 +313,19 @@ client.on('ready', () => {
 
 client.on('messageCreate', async message => {
     if (message.author.username != MY_USER_NAME && isAtMe(message)) {
+        console.log("Handling learning...");
         handleLearning(message);
         return;
     }
     if (isCommand(message)) {
-        // Parse the command
-        let {command, values} = parseCommand(message.content);
+        // Parse the command, steps in this phase are responsible for replying to the message themselves
+        let parsed = parseCommand(message);
+        if (!parsed) {
+            return;
+        }
+        let {command, values, options} = parsed;
         // Execute the command
-        let response = await handleCommand(command, values, message);
+        let response = await handleCommand(command, values, message, options);
         // Return the reponse to the command
         if (response) {
             message.reply(response);
