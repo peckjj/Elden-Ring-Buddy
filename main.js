@@ -113,6 +113,7 @@ function isCommand(message) {
 
 function parseCommand(messageObj) {
     try {
+        let fname = "parseCommand";
 
         split = messageObj.content.substr(1).split(' ');
 
@@ -148,8 +149,8 @@ function parseCommand(messageObj) {
             options: options,
             values: i < split.length ? split.slice(i) : []
         };
-        console.log("Parsed these values");
-        console.log(ret);
+        log(fname, "ParseCommand:\tParsed these values");
+        log(fname, ret);
         
         return ret;
     } catch (err) {
@@ -158,9 +159,21 @@ function parseCommand(messageObj) {
     return;
 }
 
+function log(fname, obj) {
+    let tag = Date.now().toLocaleString() + "|" + fname + "\n";
+    let objStr = JSON.stringify(obj, null, 2);
+    if (typeof obj === 'string') {
+        console.log(fname + obj);
+    } else {
+        console.log(fname + objStr);
+    }
+}
+
 async function handleSearch(command, values, options) {
+    let fname = 'handleSearch';
+    
     let search = values.join(' ');
-    console.log(`Handling search for ${search}`);
+    log(fname, `Handling search for ${search}`);
     let rows = await searchWeaponNames(search);
     let ret = rows.length > 0 ? `Weapon search for \'${search}\'\n\n` : "";
     if (rows.length > 10) {
@@ -186,8 +199,10 @@ async function handleSearch(command, values, options) {
 }
 
 async function handleCommand(command, values, message, options) {
+    let fname = 'handleCommand';
+    
     if (!COMMANDS[command]) {
-        console.log(`Can't handle command ${command}`);
+        log(fname, `Can't handle command ${command}`);
         message.reply(help());
         return;
     }
@@ -238,7 +253,7 @@ function help() {
 
 function isAtMe(message) {
     ret = false;
-    console.log(message.content);
+    // console.log(`isAtMe: Received this message content:${message.content}`);
     if (message.mentions && message.mentions.users) {
         ret = message.content.includes(MY_TEXT_ID) || message.content.includes(MY_AT);
         for (pair of message.mentions.users) {
@@ -251,15 +266,17 @@ function isAtMe(message) {
 }
 
 function handleLearning(message) {
-    console.log("Got: " + message.content.replace(/\<@![0-9]*\>/, '').trim());
+    let fname = 'handleLearning';
+    
+    log(fname, "Got: " + message.content.replace(/\<@![0-9]*\>/, '').trim());
     const learningRecord = ACTIVE_LEARNING_RECORDS[message.author.username];
     if (learningRecord) {
         db.all(learningRecord, [message.content.replace(/\<@![0-9]*\>/, '').trim()], (err, rows) => {
             if (err) {
-                console.log("Something didn't work!");
-                console.log(err);
-                console.log(learningRecord);
-                console.log(message.content.replace(/\<@![0-9]*\>/, '').trim());
+                log(fname, "Something didn't work!");
+                log(fname, err);
+                log(fname, learningRecord);
+                log(fname, message.content.replace(/\<@![0-9]*\>/, '').trim());
                 message.reply("Oops... Something didn't work!");
                 return;
             }
@@ -267,10 +284,10 @@ function handleLearning(message) {
             delete ACTIVE_LEARNING_RECORDS[message.author.username];
 
             message.reply("Thanks!!");
-            console.log("updated database");
+            log(fname, "updated database");
         });
     } else {
-        console.log("no learning record");
+        log(fname, "no learning record");
     }
 }
 
@@ -294,26 +311,28 @@ async function buildLearningQueue() {
     let emptyItemEffects = await searchEmptyItemEffects();
     for (let row of emptyItemEffects) {
         LEARNING_QUEUE.push({
-            prompt: `Can you give me the "effect" for the ${row.name}? Reply to me with an @ to submit your response!`,
+            prompt: `Can you give me the "effect" for the ${row.name} (${encodeURI(`https://eldenring.wiki.fextralife.com/${row.name}`)}  )? Reply to me with an @ to submit your response!`,
             sql: `UPDATE items SET effect = ? WHERE name = \"${row.name}\"`
         });
     }
 }
 
 client.on('ready', () => {
+    let fname = "client.on('ready'...";
     buildLearningQueue().then(() => {
-        console.log(`${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
+        log(fname, `${client.user.tag} is ready!\nUsing token: ${TOKEN}`);
         MY_TEXT_ID = `<@${client.user.id}>`
         MY_USER_NAME = client.user.username.slice(0);
         MY_AT = '@' + MY_USER_NAME;
-        console.log(MY_TEXT_ID);
-        console.log(client.user);
+        log(fname, MY_TEXT_ID);
+        log(fname, client.user);
     });
 });
 
 client.on('messageCreate', async message => {
+    let fname = 'client.on(\'messageCreate\'...';
     if (message.author.username != MY_USER_NAME && isAtMe(message)) {
-        console.log("Handling learning...");
+        log(fname, "Handling learning...");
         handleLearning(message);
         return;
     }
