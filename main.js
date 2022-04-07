@@ -160,7 +160,7 @@ function parseCommand(messageObj) {
 }
 
 function log(fname, obj) {
-    let tag = Date.now().toLocaleString() + "|" + fname + "\n";
+    let tag = new Date().toLocaleString();
     let objStr = JSON.stringify(obj, null, 2);
     if (typeof obj === 'string') {
         console.log(tag + '|' + fname + '|' + obj);
