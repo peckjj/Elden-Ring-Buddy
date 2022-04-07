@@ -163,9 +163,9 @@ function log(fname, obj) {
     let tag = Date.now().toLocaleString() + "|" + fname + "\n";
     let objStr = JSON.stringify(obj, null, 2);
     if (typeof obj === 'string') {
-        console.log(fname + obj);
+        console.log(tag + '|' + fname + '|' + obj);
     } else {
-        console.log(fname + objStr);
+        console.log(tag + '|' + fname + '|' + objStr);
     }
 }
 
