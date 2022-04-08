@@ -311,7 +311,7 @@ async function buildLearningQueue() {
     let emptyItemEffects = await searchEmptyItemEffects();
     for (let row of emptyItemEffects) {
         LEARNING_QUEUE.push({
-            prompt: `Can you give me the "effect" for the ${row.name} (${encodeURI(`https://eldenring.wiki.fextralife.com/${row.name}`)}  )? Reply to me with an @ to submit your response!`,
+            prompt: `Can you give me the "effect" for the ${row.name} (${encodeURI(`https://eldenring.wiki.fextralife.com/${row.name}`)}  )? If this item is a cookbook or a map, please respond mentioning either mentioning "book" or "map". Reply to me with an @ to submit your response!`,
             sql: `UPDATE items SET effect = ? WHERE name = \"${row.name}\"`
         });
     }
